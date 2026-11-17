@@ -302,228 +302,122 @@ The second SDG area that we target in our research is Peace, Justice and Strong 
 
 \chapter{Literature Review / Related Work}
 \label{ch:litreview}
-Phishing detection has evolved from static URL blocklists to machine learning and, more recently, to transformer-based, client-side, and anomaly-detection approaches. This chapter surveys the most relevant prior work in five categories: (i) unsupervised URL anomaly detection and clustering; (ii) supervised transformer-based web phishing detection; (iii) hybrid and fusion-based approaches; (iv) email phishing detection and knowledge distillation; and (v) client-side, lightweight, and privacy-preserving deployment. Each reviewed paper is summarised, critically analysed, and related to PhishHook. 
+Phishing detection has evolved from URL blocklists to machine learning, transformer-based classifiers, and systems designed to run on the user's device. This chapter reviews five groups of studies: unsupervised URL anomaly detection and clustering, supervised detection from webpages and URLs, hybrid methods that combine signals, email detection and knowledge distillation, and lightweight client-side deployment. The comparison considers the inputs each detector needs, how researchers measure its performance, and which results apply to the browser setting. This matters because an evaluation on a balanced benchmark answers a different question from an evaluation on later attacks or on data from a source the detector has not seen. Likewise, a model that performs well with server resources may have a different cost when it runs within a browser. The relationship to PhishHook is therefore assessed in terms of detection quality, dependence on external services, and the evidence available for performance on ordinary client hardware.
 
 \section{Definitions, Acronyms, and Abbreviations}
 \label{sec:litreview-definitions}
+The terms below describe the learning methods, deployment formats, and explanation techniques discussed in this chapter. The same abbreviations are used in the requirements and methodology.
+
 \begin{itemize}
-    \item \textbf{CNN:} Convolutional Neural Network, a deep neural network used mainly in computer vision and image recognition tasks.
-    \item \textbf{LSTM:} Long Short-Term Memory, a type of recurrent neural network (RNN) architecture.
-    \item \textbf{Autoencoder:} A neural network trained to reconstruct its input, used here for anomaly detection on URLs.
-    \item \textbf{Isolation Forest:} An ensemble anomaly-detection method that isolates observations using random splits.
-    \item \textbf{LSH:} Locality Sensitive Hashing, a technique for approximate nearest neighbor (ANN) search and for quickly finding similar items in very large, high-dimensional datasets.
-    \item \textbf{HDBSCAN:} Hierarchical Density-Based Spatial Clustering of Applications with Noise.
-    \item \textbf{SHAP:} SHapley Additive exPlanations, a method for explaining model predictions.
-    \item \textbf{LLM:} Large Language Model.
-    \item \textbf{ONNX:} Open Neural Network Exchange
-    \item \textbf{BiLSTM:} Bidirectional Long Short-Term Memory.
-    \item \textbf{XAI:} Explainable Artificial Intelligence.
+    \item A convolutional neural network (CNN) learns local patterns in inputs such as images.
+    \item A long short-term memory network (LSTM) is a recurrent neural network that retains information across a sequence.
+    \item An autoencoder learns to reconstruct its input. In this report, reconstruction error is used to score URL anomalies.
+    \item Isolation Forest detects anomalies by measuring how easily random splits isolate an observation.
+    \item Locality-sensitive hashing (LSH) groups similar items for fast approximate nearest-neighbour search in large, high-dimensional datasets.
+    \item Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN) identifies groups at different density levels and can leave noise unassigned.
+    \item SHapley Additive exPlanations (SHAP) estimates how individual features contribute to a prediction.
+    \item A large language model (LLM) learns patterns in text from a large training corpus.
+    \item Open Neural Network Exchange (ONNX) is a format for representing models across compatible tools.
+    \item A bidirectional long short-term memory network (BiLSTM) processes a sequence in both directions.
+    \item Explainable artificial intelligence (XAI) covers techniques that help readers interpret model behaviour.
 \end{itemize}
 
 \section{Detailed Literature Review}
 \label{sec:litreview}
+The review groups prior work by the evidence it uses and the conditions under which it was evaluated. Each study is examined in terms of its method, reported results, limitations, and relevance to a detector running locally in a browser.
 
 \subsection{Unsupervised URL Anomaly Detection and Clustering}
+These studies learn patterns from URL strings with limited or no phishing labels. The comparison distinguishes methods that score an individual URL from methods that cluster a collection of URLs to discover campaigns.
 
-\subsubsection{Multi-layered Deep Character-Level Convolutional Autoencoder for Zero-Day Phishing URL Detection (2021):}
-\textbf{Summary:} The authors train a character-level convolutional autoencoder on benign URLs
-to learn and reconstruct their usual structure. An unfamiliar phishing URL
-can produce a high root mean square error (RMSE), which the
-detector uses as an anomaly score. The paper reports 97.34
-percent accuracy without prior examples of the specific attack [2].
+\subsubsection{Multilayered Deep Character-Level Convolutional Autoencoder for Zero-Day Phishing URL Detection (2021)}
+The authors train a character-level convolutional autoencoder on benign URLs to learn and reconstruct their usual structure. An unfamiliar phishing URL can produce a high root mean square error (RMSE), which the detector uses as an anomaly score. The paper reports 97.34 percent accuracy without prior examples of the specific attack \cite{charcnn2021}. Anomaly scoring lets the method flag zero-day phishing without labelled phishing examples during training. It learns what counts as ``normal'' from benign URLs alone, is sensitive to URL obfuscation, and leaves page and email content out of the analysis \cite{charcnn2021}. This paper informed PhishHook's character-level autoencoder for the URL module. PhishHook uses benign-only training and reconstruction error, compares the autoencoder with Isolation Forest under a preregistered model-selection rule, and evaluates the candidates on source-disjoint and temporal splits. A low reconstruction error therefore means only that the URL resembles the benign training distribution. Reporting the anomaly module separately from DOM-based decisions helps show where this signal is useful and where another input is needed.
 
-\textbf{Critical analysis:} Anomaly scoring lets the method flag zero-day phishing without
-labelled phishing examples during training. It learns what counts as ``normal''
-from benign URLs alone, is sensitive to URL obfuscation, and
-leaves page and email content out of the analysis [2].
+\subsubsection{Web Phishing Net (WPN): Scalable Machine Learning Approach to Real-Time Phishing Campaign Detection (2024)}
+Web Phishing Net (WPN) detects campaigns in real time from URL strings without supervised training. Locality Sensitive Hashing (LSH) groups unlabelled URLs with known benign and phishing domains in geometric buckets. Levenshtein and Dice distances refine the groups. On standard and AI-generated URL datasets, WPN reports 93.19 percent detection, compared with 83.62 percent for K-Means, 81.90 percent for HAC, and 75.00 percent for BIRCH \cite{wpn2025}. WPN clusters campaigns quickly using URL text alone. Its reliance on lexical similarity leaves page content and network features out, and the evaluation covers only small offline datasets \cite{wpn2025}. WPN and PhishHook's URL module both analyse unlabelled URL strings. WPN clusters batches of URLs, while PhishHook needs a client-side score for each URL. This difference motivated the autoencoder and Isolation Forest candidates and the emphasis on realistic evaluation. Campaign clusters are useful for identifying related addresses in a collection. The browser has a different job: it must decide whether a warning is warranted for the current navigation, including when similar URLs have not been seen.
 
-\textbf{Relationship to proposed work:} This paper informed PhishHook's character-level autoencoder for
-the URL module. PhishHook uses benign-only training and reconstruction error,
-compares the autoencoder with Isolation Forest under a preregistered model-selection
-rule, and evaluates the candidates on source-disjoint and temporal splits.
+\subsubsection{PhishCluster: Real-Time, Density-Based Discovery of Malicious URL Campaigns (2026)}
+PhishCluster uses density and semantic embeddings to find malicious URL campaigns in real time. Its online phase applies temporal decay and pruning to Campaign Micro-Clusters (CMCs). The offline phase applies HDBSCAN to active CMC centroids. On a synthetic dataset of about one billion points, the paper reports 8,570 URLs per second, a mean ARI of 0.92, and 5.8 s campaign detection latency \cite{phishcluster2026}. PhishCluster discovers campaigns at real-time throughput. It relies on URL similarity, fixed hyperparameters, a static embedding model, and one server. The synthetic-only evaluation and limited handling of slow or low-volume attacks restrict what the results show \cite{phishcluster2026}. PhishCluster shows the value of URL-only evidence at campaign scale. PhishHook needs to score individual URLs inside the browser, so it uses an anomaly score. Its evaluation uses source-disjoint and temporal splits in place of synthetic data. The reported throughput describes a server processing a stream of URLs. A browser evaluation instead needs latency and resource measurements per navigation, because a campaign-level throughput number does not show how long one user waits for a verdict.
 
-\subsubsection{Web Phishing Net (WPN): Scalable Machine Learning Approach to Real-Time Phishing Campaign Detection (2025):}
-\textbf{Summary:} Web Phishing Net (WPN) detects campaigns in real time from URL strings without
-supervised training. Locality Sensitive Hashing (LSH) groups unlabelled URLs with known benign and
-phishing domains in geometric buckets. Levenshtein and Dice distances refine the groups. On
-standard and AI-generated URL datasets, WPN reports 93.19 percent detection, compared with 83.62
-percent for K-Means, 81.90 percent for HAC, and 75.00 percent for BIRCH [3].
+\subsubsection{An Enhanced K-Means Clustering Algorithm for Phishing Attack Detection (2024)}
+The authors use CfsSubsetEval to select 19 features from 87 and apply a polynomial kernel before K-Means clustering in WEKA. For samples of 2,000, 7,000, and 10,000, the reported accuracies are 89.2\%, 86.62\%, and 86.25\%, compared with 51.5\%, 52.93\%, and 56.98\% for kernel K-Means \cite{kmeans2024}. Feature selection and unsupervised operation are useful aspects of this method. The paper tests small datasets offline against one baseline, leaves scalability beyond one million samples unclear, and omits advanced phishing types \cite{kmeans2024}. The study suggests that a small set of URL features can carry much of the detection signal. That idea informs the engineered lexical features in PhishHook's Isolation Forest candidate. K-Means works in ``batch'' mode, so PhishHook leaves it out of the extension's per-URL scoring. The result supports testing which URL features contribute meaningfully to detection. Deployment still requires measuring the scoring cost and checking whether the selected features remain useful on sites from different sources or time periods.
 
-\textbf{Critical analysis:} WPN clusters campaigns quickly using URL text alone. Its
-reliance on lexical similarity leaves page content and network features
-out, and the evaluation covers only small offline datasets [3].
+\subsubsection{Phishing Detection Using Clustering and Machine Learning (2024)}
+The study compares rough sets, stability-correlation and correlation (ScC), and principal component analysis (PCA). It applies K-Means with k = 2 and compares decision trees with H2O deep learning across two tabular phishing datasets. The decision tree using ScC and K-Means achieved 100 percent accuracy on the UCI benchmark and 97.2 percent on the second dataset \cite{clustml2024}. The method uses pre-extracted tabular features. The study does not evaluate HTML or DOM analysis, live deployment, inference latency, memory use, or zero-day detection \cite{clustml2024}. The benchmark results illustrate why high accuracy on a static dataset does not settle whether a detector will generalise to unfamiliar sources or later attacks. PhishHook evaluates those questions with source-disjoint and temporal splits and reports performance at three phishing base rates. It uses a per-URL anomaly score and a separate DOM classifier for the browser rather than a batch clustering and tabular pipeline.
 
-\textbf{Relationship to Proposed Work:} WPN and PhishHook's URL module
-both analyse unlabelled URL strings. WPN clusters batches of
-URLs, while PhishHook needs a client-side score for each
-URL. This difference motivated the autoencoder and Isolation
-Forest candidates and the emphasis on realistic evaluation.
+\subsection{Supervised Web Phishing Detection}
+This group covers models that learn from labelled webpages or URLs. Its main questions for PhishHook are which signals the models retain, how they perform when the source or time period changes, and what resources they need inside a browser.
 
-\subsubsection{PhishCluster: Real-Time, Density-Based Discovery of Malicious URL Campaigns (2026):}
-\textbf{Summary:} PhishCluster uses density and semantic embeddings to find malicious URL campaigns in
-real time. Its online phase applies temporal decay and pruning to Campaign Micro-Clusters
-(CMCs). The offline phase applies HDBSCAN to active CMC centroids. On a synthetic
-dataset of about one billion points, the paper reports 8,570 URLs per second,
-a mean ARI of 0.92, and 5.8 s campaign detection latency [4].
+\subsubsection{PhishLang: A Real-Time, Fully Client-Side Phishing Detection Framework Using MobileBERT (2026)}
+Roy and Nilizadeh's PhishLang uses MobileBERT to analyse actionable HTML elements in the browser. The authors draw on PhishPedia \cite{phishpedia2021}, which contains about 30,000 phishing pages from OpenPhish and a comparable number of benign pages from the Alexa rankings. The PhishLang study uses the subset with HTML source: 22,419 phishing and 26,000 benign samples \cite{phishlang2026}. PhishLang shows that a transformer can detect phishing in the browser. Its evaluation identifies issues with JavaScript evasion, DOM manipulation, changing page states, and false positives. It leaves source-disjoint and temporal performance untested \cite{phishlang2026}. PhishHook also uses MobileBERT for supervised DOM classification and PhishPedia as a primary dataset. Chapter~\ref{ch:intro}, Section~\ref{sec:contributions} describes its additions: DOM input without the URL, an unsupervised URL module, post-load monitoring, an MV3 resource protocol, and a distilled email detector. The distinction between the original dataset and the subset that contains HTML matters when comparing DOM models. Results based on available HTML should be interpreted alongside the sources of the samples and the way the evaluation split was constructed.
 
-\textbf{Critical analysis:} PhishCluster discovers campaigns at real-time throughput. It relies on URL similarity,
-fixed hyperparameters, a static embedding model, and one server. The synthetic-only evaluation and
-limited handling of slow or low-volume attacks restrict what the results show [4].
+\subsubsection{SpecularNet: Hierarchical Graph Autoencoding for Reference-Free Web Phishing Detection (RAID 2026)}
+SpecularNet is a reference-free phishing detector that reconstructs the tree structure of the DOM with a hierarchical graph autoencoder. The detector uses the domain and HTML structure, leaving out page text and attribute values. In the published RAID evaluation, the authors report an F1 score of 93.9\% and CPU inference of about 20~ms per webpage \cite{specularnet2026}. The paper evaluates the model in open-world and imbalanced settings and tests its robustness to HTML-level changes. For a browser deployment, the results are most informative about structural signals and the cost of scoring them. A structural detector has different inputs from a text classifier, so its results should be read in light of the kinds of changes included in the tests \cite{specularnet2026}. Both systems aim to run lightweight detection on the client. SpecularNet uses graph autoencoding, while PhishHook classifies text with MobileBERT. SpecularNet's adversarial findings inform the threat model in Chapter~\ref{ch:methodology}. Both designs can be evaluated for speed on ordinary CPUs. Their different inputs also make it important to report performance under changes to page structure and content.
 
-\textbf{Relationship to proposed work:} PhishCluster shows the value of URL-only evidence
-at campaign scale. PhishHook needs to score individual URLs inside
-the browser, so it uses an anomaly score. Its evaluation
-uses source-disjoint and temporal splits in place of synthetic data.
+\subsubsection{Phish Fighter: Self-Updating Machine Learning Shield Against Phishing Kits Based on HTML Code Analysis (2025)}
+Phish Fighter looks for repeated HTML templates in phishing kits. It simplifies the DOM, then combines clustering with Random Forest classification to flag zero-day kits and cloned sites without knowing the target brand \cite{phishfighter2025}. The method detects phishing from templates, can handle cosmetic changes, and re-clusters automatically. Its weaknesses include a false-positive risk when the system learns from fake copies of legitimate sites, absence of URL post-analysis, and lack of real-world integration \cite{phishfighter2025}. Phish Fighter shows why page structure is worth analysing. PhishHook uses a supervised transformer, adds an unsupervised URL module, and evaluates source-disjoint data at three priors. Phish Fighter's false-positive concern also informs PhishHook's FPR evaluation on two benign strata. A repeated template can be a useful signal when many pages come from the same kit. Measurements taken on independent sources help show whether any improvement persists beyond repeated or closely related pages, while the benign strata reveal where a template-based signal might produce false alerts.
 
-\subsubsection{Phishing Attack Detection using an Enhanced K-Means Clustering Algorithm (2024):}
-\textbf{Summary:} This paper highlights the use of K-means clustering and CfsSubsetEval feature selection (reducing) to combine them.
-87 is used as the kernel and is a polynomial kernel. On 2,000, 7,000, and 10,000 URLs, it reports accuracies of
-89.2%, 86.62%, and 86.25%, versus 51.5%, 52.93%, and 56.98% for standard kernel K-Means [5].
+\subsubsection{BERT-PhishFinder: Robust Phishing URL Detection with Optimized DistilBERT (2025)}
+BERT-PhishFinder classifies URL strings with an optimised DistilBERT model. It combines SpatialDropout1D, global pooling, and an ensemble of parallel dense layers. The paper reports average accuracy above 99.30\% across five benchmarks and statistically compares the model with XLNet, RoBERTa, and ALBERT \cite{bertphishfinder2025}. BERT-PhishFinder reports high accuracy for transformer-based URL classification across datasets. Its balanced benchmarks risk a ceiling effect. The paper gives no evaluation at realistic base rates, with source-disjoint or temporal splits, or in a browser \cite{bertphishfinder2025}. PhishHook uses MobileBERT rather than DistilBERT and adds a full deployment study, quantisation analysis, three-prior evaluation, and source-disjoint and temporal splits. BERT-PhishFinder is also relevant as an example of a supervised URL model, which PhishHook mirrors in its own supervised URL baseline (Section~\ref{sec:url-module}) used only as a reference. High accuracy on a balanced benchmark can hide the practical cost of false alarms when phishing pages are rare. That distinction makes the baseline useful for comparing URL representations, while motivating separate measurements under realistic class proportions.
 
-\textbf{Critical analysis:} Feature selection and unsupervised operation are useful aspects of this
-method. The paper tests small datasets offline against one baseline, leaves scalability
-beyond one million samples unclear, and omits advanced phishing types [5].
+\subsubsection{Deep Learning Approaches for Phishing Detection: A Systematic Review (2026)}
+The review covers 101 studies from 2020 to 2026 on deep learning, mobile phishing, lightweight models, explainability, temporal modelling, and coordinated attacks. CNNs were the most common (26.7\%). Hybrids accounted for 22.8\%, RNN/LSTM/GRU models for 17.8\%, and transformers for 14.9\%. Only 17.8\% tested on mobile or edge hardware, about 21\% used temporal information, and about 5\% studied coordinated attacks. Public datasets often lack timestamps, campaign IDs, multilingual samples, and real mobile-edge data \cite{dlsurvey2026}. The review systematically brings together a broad body of evidence and identifies specific gaps. It stops short of proposing a system that could be deployed \cite{dlsurvey2026}. PhishHook addresses several gaps from the review by running on real client hardware through Chromium MV3, using source-disjoint and temporal splits, reporting resource metrics alongside accuracy, and evaluating detection at three stated priors. The review's findings also explain why this report treats data coverage and deployment evidence separately: a strong model result cannot answer questions that depend on hardware, timestamps, or campaign labels absent from the evaluation.
 
-\textbf{Relationship to proposed work:} The study suggests that a small set of
-URL features can carry much of the detection signal. That idea informs
-the engineered lexical features in PhishHook's Isolation Forest candidate. K-Means works in
-``batch'' mode, so PhishHook leaves it out of the extension's per-URL scoring.
+\subsubsection{Lightweight Malicious URL Detection Using Deep Learning and LLMs (2025)}
+The authors use pre-trained BERT, GPT-2, TinyLLaMA, and T5-Large encoders as static feature extractors and pass their embeddings to a lightweight Conv-1D + LSTM + GRU classifier. They report 97.5\% peak accuracy and 0.11~ms inference latency with a 0.5-million-parameter classification head, and use LIME to explain the predictions \cite{llmurl2025}. The method is fast and uses LIME to explain predictions. It analyses static URLs only, excludes page content and the DOM, and needs a GPU to extract features. It fails on Unicode homoglyphs and deceptive subdomain chains. The evaluation uses a static merged Kaggle dataset in place of a live stream \cite{llmurl2025}. PhishHook uses both the URL and the rendered DOM and runs all inference on the user's device without a GPU. The paper's adversarial findings on homoglyphs inform PhishHook's threat model for the URL module. Browser deployment makes the feature extraction cost part of the comparison. It is therefore important to distinguish the time needed to compute an embedding from the time spent in the small classifier that consumes it.
 
-\subsubsection{Phishing Detection using Clustering and Machine Learning (2024):}
-\textbf{Summary:} The study compares rough sets, stability-correlation and correlation (ScC), and principal component analysis (PCA).
-It applies K-Means with k = 2 and compares decision trees with H2O deep learning across two tabular phishing datasets.
-The decision tree using ScC and K-Means achieved 100 percent accuracy on the UCI benchmark
-and 97.2 percent on the second dataset [6].
-
-\textbf{Critical analysis:} The pipeline is relatively simple to design, and the paper reports high accuracy on a tabular
-dataset. It has some drawbacks such as the pre-extraction of tabular features, lack of HTML or DOM parsing,
-No live deployment, no measurement of inference latency, no memory measurement and no zero-day evaluation [6].
-
-\textbf{Relationship to proposed work:} PhishHook does not employ clustering or supervised tabular pipeline.
-This paper is included as an example of the risk of the ceiling-effect that PhishHook addresses explicitly.
-with harder, source disjoint and temporal test set; with three prior base-rate reporting
-
-\subsection{Supervised Transformer-Based Web Phishing Detection}
-
-\subsubsection{PhishLang: A Real-Time, Fully Client-Side Phishing Detection Framework Using MobileBERT (2026):}
-\textbf{Summary:} Roy and Nilizadeh's PhishLang uses MobileBERT to analyse actionable HTML elements entirely in the browser. Its main training dataset, PhishPedia \cite{phishpedia2021}, contains [VERIFY: 30,000] phishing sites from OpenPhish and [VERIFY: 30,000] benign sites from Alexa rankings. PhishLang shows that a compact transformer can detect phishing locally \cite{phishlang2026}.
-
-\textbf{Critical analysis:} PhishLang shows that a transformer can detect phishing in the browser. Its evaluation identifies issues with JavaScript evasion, DOM manipulation, changing page states, and false positives. It leaves source-disjoint and temporal performance untested \cite{phishlang2026}.
-
-\textbf{Relationship to proposed work:} PhishHook also uses MobileBERT for supervised DOM classification and PhishPedia as a primary dataset. Chapter~\ref{ch:intro}, Section~\ref{sec:contributions} describes its additions: DOM input without the URL, an unsupervised URL module, post-load monitoring, an MV3 resource protocol, and a distilled email detector.
-
-\subsubsection{SpecularNet: Hierarchical Graph Autoencoding for Reference-Free Web Phishing Detection (2026):}
-\textbf{Summary:} SpecularNet is a reference-free, lightweight phishing detector built on a hierarchical graph autoencoder. It models the DOM as a tree, discards text and attribute values (which attackers can copy), and learns to reconstruct normal HTML structure. Anomalous reconstructions flag phishing. It runs on CPU in approximately 20~ms per page and reports accuracy of 93.92\% with F1 of 93.92 on its first test set, and 86.06\% accuracy on a second test set, alongside an adversarial evaluation where F1 drops from 90.82 to 73.47 under an advanced attack \cite{specularnet2026}.
-
-\textbf{Critical analysis:} Its strengths are speed, reference-free detection, and CPU-only operation. Its weaknesses are limited robustness to spear-phishing, the assumption that attackers modify existing HTML rather than rebuilding pages, use of only domain and DOM structure, no automatic retraining under concept drift, and no integration into a real browser security system \cite{specularnet2026}.
-
-\textbf{Relationship to proposed work:} Both systems aim to run lightweight detection on the client. SpecularNet uses graph autoencoding, while PhishHook classifies text with MobileBERT. SpecularNet's adversarial findings inform the threat model in Chapter~\ref{ch:methodology}.
-
-\subsubsection{Phish Fighter: Self-Updating Machine Learning Shield Against Phishing Kits Based on HTML Code Analysis (2025):}
-\textbf{Summary:} Phish Fighter looks for repeated HTML templates in phishing kits. It simplifies the DOM, then combines clustering with Random Forest classification to flag zero-day kits and cloned sites without knowing the target brand \cite{phishfighter2025}.
-
-\textbf{Critical analysis:} The method detects phishing from templates, can handle cosmetic changes, and re-clusters automatically. Its weaknesses include a false-positive risk when the system learns from fake copies of legitimate sites, absence of URL post-analysis, and lack of real-world integration \cite{phishfighter2025}.
-
-\textbf{Relationship to proposed work:} Phish Fighter shows why page structure is worth analysing. PhishHook uses a supervised transformer, adds an unsupervised URL module, and evaluates source-disjoint data at three priors. Phish Fighter's false-positive concern also informs PhishHook's FPR evaluation on two benign strata.
-
-\subsubsection{BERT-PhishFinder: Robust Phishing URL Detection With Optimized DistilBERT (2025):}
-\textbf{Summary:} BERT-PhishFinder classifies URL strings with an optimised DistilBERT model that uses SpatialDropout1D, global pooling, and parallel dense layers as an ensemble. The paper reports average accuracy above 99.30\% across five benchmarks and statistically compares the model with XLNet, RoBERTa, and ALBERT \cite{bertphishfinder2025}.
-
-\textbf{Critical analysis:} BERT-PhishFinder reports high accuracy for transformer-based URL classification across datasets. Its balanced benchmarks risk a ceiling effect. The paper gives no evaluation at realistic base rates, with source-disjoint or temporal splits, or in a browser \cite{bertphishfinder2025}.
-
-\textbf{Relationship to proposed work:} PhishHook uses MobileBERT rather than DistilBERT and adds a full deployment study, quantisation analysis, three-prior evaluation, and source-disjoint and temporal splits. BERT-PhishFinder is also relevant as an example of a supervised URL model, which PhishHook mirrors in its own supervised URL baseline (Section~\ref{sec:url-module}) used only as a reference.
-
-\subsubsection{Deep Learning Approaches for Phishing Detection: A Systematic Review (2026):}
-\textbf{Summary:} The review covers 101 studies from 2020 to 2026 on deep learning, mobile phishing, lightweight models, explainability, temporal modelling, and coordinated attacks. CNNs were the most common (26.7\%). Hybrids accounted for 22.8\%, RNN/LSTM/GRU models for 17.8\%, and transformers for 14.9\%. Only 17.8\% tested on mobile or edge hardware, about 21\% used temporal information, and about 5\% studied coordinated attacks. Public datasets often lack timestamps, campaign IDs, multilingual samples, and real mobile-edge data \cite{dlsurvey2026}.
-
-\textbf{Critical analysis:} The review systematically brings together a broad body of evidence and identifies specific gaps. It stops short of proposing a system that could be deployed \cite{dlsurvey2026}.
-
-\textbf{Relationship to proposed work:} PhishHook addresses several gaps from the review by running on real client hardware through Chromium MV3, using source-disjoint and temporal splits, reporting resource metrics alongside accuracy, and evaluating detection at three stated priors.
-
-\subsubsection{Lightweight Malicious URL Detection using Deep Learning and LLMs (2025):}
-\textbf{Summary:} The authors use pre-trained BERT, GPT-2, TinyLLaMA, and T5-Large encoders as static feature extractors and pass their embeddings to a lightweight Conv-1D + LSTM + GRU classifier. They report 97.5\% peak accuracy and 0.11~ms inference latency with a 0.5-million-parameter classification head, and use LIME to explain the predictions \cite{llmurl2025}.
-
-\textbf{Critical analysis:} The method is fast and uses LIME to explain predictions. It analyses static URLs only, excludes page content and the DOM, and needs a GPU to extract features. It fails on Unicode homoglyphs and deceptive subdomain chains. The evaluation uses a static merged Kaggle dataset in place of a live stream \cite{llmurl2025}.
-
-\textbf{Relationship to proposed work:} PhishHook uses both the URL and the rendered DOM and runs all inference on the user's device without a GPU. The paper's adversarial findings on homoglyphs inform PhishHook's threat model for the URL module.
+\subsubsection{Enhancing Phishing Detection: Feature Selection and Deep Learning Models (2025)}
+Nayak et al.\ compare a feedforward neural network, a deeper neural network, a Wide and Deep model, and TabNet on a dataset of 58,645 URLs with 111 candidate features. The authors use permutation importance to rank features and grid search to tune the models. They also use an anti-phishing score that accounts for accuracy, false-positive rate, true-positive rate, and testing time. They select a feedforward model that achieves 94.46\% accuracy with 14 features, trading some accuracy for a smaller input set. The paper reports about 80\% accuracy on a second dataset, which also informed model selection \cite{nayak2025featurephishing}. The larger feature set gives a useful benchmark, but the lower result on the second dataset shows why evaluation should report how the data were used. The study's browser extension sends URLs to a Flask server for inference, so its deployment does not demonstrate fully local execution. For PhishHook, the work motivates comparing feature subsets and measuring detection quality and resource costs together while keeping inference on the device.
 
 \subsection{Hybrid and Fusion-Based Approaches}
+Hybrid detectors combine signals, learning methods, or stages of analysis. These studies help explain which combinations are practical when the extension can inspect the current page but cannot request external metadata.
 
-\subsubsection{PhishSSL: Self-Supervised Contrastive Learning for Phishing Website Detection (2025):}
-\textbf{Summary:} PhishSSL uses self-supervised contrastive learning with triplet loss to detect phishing websites without labelled data. It builds an 87-dimensional feature vector from URL structure, HTML content, and external services, uses a learnable feature attention mechanism, and performs prototype-based inference. It reports ROC-AUC of 0.960 on a benchmark dataset and 0.935 and 0.922 on two further datasets \cite{phishssl2025}.
+\subsubsection{PhishSSL: Self-Supervised Contrastive Learning for Phishing Website Detection (2025)}
+PhishSSL uses self-supervised contrastive learning with triplet loss to detect phishing websites without labelled data. It builds an 87-dimensional feature vector from URL structure, HTML content, and external services, uses a learnable feature attention mechanism, and performs prototype-based inference. It reports ROC-AUC of 0.960 on a benchmark dataset and 0.935 and 0.922 on two further datasets \cite{phishssl2025}. Its strengths are self-supervised operation and the use of attention. Its weaknesses are dependence on external service data (which conflicts with PhishHook's entirely-local constraint), no realistic base-rate evaluation, and unsupervised framing \cite{phishssl2025}. PhishSSL is related to PhishHook's unsupervised URL module in spirit (learning without labelled phishing) but uses external service features, which PhishHook excludes. PhishSSL's evidence that feature attention helps is consistent with PhishHook's interest in input-representation ablations. This comparison also motivates testing the PhishHook inputs separately. Measuring the URL and DOM modules on their own makes it possible to assess what each contributes before their scores are combined.
 
-\textbf{Critical analysis:} Its strengths are self-supervised operation and the use of attention. Its weaknesses are dependence on external service data (which conflicts with PhishHook's entirely-local constraint), no realistic base-rate evaluation, and unsupervised framing \cite{phishssl2025}.
+\subsubsection{Phishing URL Detection Generalisation Using Unsupervised Domain Adaptation (2024)}
+The authors test how well URLNet, URLTran, CatchPhish, and PhishRF generalise across datasets. They apply unsupervised domain adaptation to align features whose distributions shift, including path length, the number of dots in the hostname, and URL prefixes. Across 24 scenarios it improves F1 by an average of 0.06, with gains up to about 0.2 \cite{uda2024}. The paper systematically measures how model performance drops across datasets and uses an alignment method that works independently of the classifier. Its weaknesses are treating features independently, matching only overall distributions rather than class-specific ones, and limited feature coverage \cite{uda2024}. This paper motivates PhishHook's source-disjoint evaluation. PhishHook holds out all of PhishTank for testing to study generalisation under local-only constraints, without applying domain adaptation. Keeping a data source out of training lets the evaluation measure the cost of moving to a new source under a fixed model. The result answers a different question from a study that adapts the model to the target data before testing it.
 
-\textbf{Relationship to proposed work:} PhishSSL is related to PhishHook's unsupervised URL module in spirit (learning without labelled phishing) but uses external service features, which PhishHook excludes. PhishSSL's evidence that feature attention helps is consistent with PhishHook's interest in input-representation ablations.
+\subsubsection{Enhancing Phishing Detection in Semantic Web Systems Using Optimized Deep Learning (2024)}
+This work combines MobileBERT feature extraction with CMA-ES hyperparameter optimisation for phishing email detection. On a public Kaggle email dataset, the authors report 95\% overall accuracy. For phishing emails, they report a precision of 0.97, a recall of 0.95, and an F1 score of 0.96 \cite{semanticweb2024}. The study combines MobileBERT with an evolutionary strategy for email phishing detection. It evaluates a single dataset without leakage-free splits or ablations that isolate CMA-ES. The classifier is unclear, and the paper tests no Semantic Web features or deployment and privacy impacts \cite{semanticweb2024}. Both projects use MobileBERT to detect phishing from text. PhishHook combines it with distillation and quantisation in a fully local MV3 pipeline, and uses source-disjoint and temporal splits to make its deployment evaluation reproducible. For PhishHook, this means evaluating both the classifier's behaviour on a new source and the resource cost of running it inside the browser. A single aggregate accuracy score cannot answer either question by itself.
 
-\subsubsection{Phishing URL Detection Generalisation Using Unsupervised Domain Adaptation (2024):}
-\textbf{Summary:} The authors test how well URLNet, URLTran, CatchPhish, and PhishRF generalise across datasets. They apply unsupervised domain adaptation to align features whose distributions shift, including path length, the number of dots in the hostname, and URL prefixes. Across 24 scenarios it improves F1 by an average of 0.06, with gains up to about 0.2 \cite{uda2024}.
-
-\textbf{Critical analysis:} The paper systematically measures how model performance drops across datasets and uses an alignment method that works independently of the classifier. Its weaknesses are treating features independently, matching only overall distributions rather than class-specific ones, and limited feature coverage \cite{uda2024}.
-
-\textbf{Relationship to proposed work:} This paper motivates PhishHook's source-disjoint evaluation. PhishHook holds out all of PhishTank for testing to study generalisation under local-only constraints, without applying domain adaptation.
-
-\subsubsection{Enhancing Phishing Detection in Semantic Web Systems Using Optimized Deep Learning (2024):}
-\textbf{Summary:} This work combines MobileBERT feature extraction with CMA-ES hyperparameter optimisation for phishing email detection. On a public Kaggle email dataset, the authors report 95\% overall accuracy. For phishing emails, they report a precision of 0.97, a recall of 0.95, and an F1 score of 0.96 \cite{semanticweb2024}.
-
-\textbf{Critical analysis:} The study combines MobileBERT with an evolutionary strategy for email phishing detection. It evaluates a single dataset without leakage-free splits or ablations that isolate CMA-ES. The classifier is unclear, and the paper tests no Semantic Web features or deployment and privacy impacts \cite{semanticweb2024}.
-
-\textbf{Relationship to proposed work:} Both projects use MobileBERT to detect phishing from text. PhishHook combines it with distillation and quantisation in a fully local MV3 pipeline, and uses source-disjoint and temporal splits to make its deployment evaluation reproducible.
-
-\subsubsection{HTTP Header-Based Phishing Attack Detection Using Machine Learning (2024):}
-\textbf{Summary:} A Python script sends one GET request per URL and records the presence of 16 security headers as binary features. These are the only inputs. The study compares six classifiers and selects Random Forest. It reports 97.8\%, 95.1\%, and 99.2\% accuracy across three datasets, with a mean response time of 1.57~s \cite{httpheader2024}.
-
-\textbf{Critical analysis:} Header-based detection is fast and works independently of page content. It depends on which headers are present, and one of the datasets the authors built has no benign samples. The study does not test robustness when attackers add security headers and includes no mobile or hybrid features \cite{httpheader2024}.
-
-\textbf{Relationship to proposed work:} Collecting HTTP headers through these requests would conflict with PhishHook's local-only design, so the extension leaves HTTP headers out of its analysis. This paper is included to contrast with PhishHook's design and to reinforce that external lookups are not required for a strong signal.
+\subsubsection{HTTP Header-Based Phishing Attack Detection Using Machine Learning (2024)}
+A Python script sends one GET request per URL and records the presence of 16 security headers as binary features. These are the only inputs. The study compares six classifiers and selects Random Forest. It reports 97.8\%, 95.1\%, and 99.2\% accuracy across three datasets, with a mean response time of 1.57~s \cite{httpheader2024}. Header-based detection is fast and works independently of page content. It depends on which headers are present, and one of the datasets the authors built has no benign samples. The study does not test robustness when attackers add security headers and includes no mobile or hybrid features \cite{httpheader2024}. Collecting HTTP headers through these requests would conflict with PhishHook's local-only design, so the extension leaves HTTP headers out of its analysis. This paper is included to contrast with PhishHook's design and to reinforce that external lookups are not required for a strong signal.
 
 \subsection{Email Phishing Detection and Knowledge Distillation}
+The following studies examine how email detectors trade model size against classification quality. They inform the choice of a distilled model and the distinction between email content available in a browser and information available to a mail server.
 
-\subsubsection{A Lightweight Defense Mechanism Against Next-Generation Phishing Emails Using Distilled Attention-Augmented BiLSTM (2026):}
-\textbf{Summary:} This paper develops a small, fast phishing email detector by distilling knowledge from MobileBERT into a BiLSTM with multi-head attention. It builds a hybrid dataset of real and LLM-generated phishing emails (paraphrased, masked, personalised). The distilled student uses about 4.5M parameters versus the teacher's 25.3M and achieves an F1 of 96.67 on a mixture of all test protocols with a CPU test time of 6.06~s \cite{distilbilstm2026}.
+\subsubsection{A Lightweight Defense Mechanism Against Next-Generation Phishing Emails Using Distilled Attention-Augmented BiLSTM (2026)}
+The published study distils a MobileBERT teacher into a BiLSTM student with multi-head attention. Its hybrid training data combine human-written and LLM-generated phishing messages, including paraphrased, masked, and personalised examples. The student uses about 4.5 million parameters. The authors compare it with larger transformer baselines under several protocols, including mixed traffic and cross-distribution transfers, and report substantially faster inference with a small difference in weighted F1 on the mixed split \cite{distilbilstm2026}. The experiments support using distillation when inference time and model size are constrained. The evaluation concerns email text, so an extension still needs to check what information it can reliably extract from webmail and what resources the student uses when it runs in a browser \cite{distilbilstm2026}. PhishHook adopts the teacher-student pattern from this paper but adapts it to the constrained webmail-DOM setting, restricts inputs to what is actually visible in Gmail or Outlook web, and measures student-only resource use in an MV3 extension. This design directly motivates RQ3.
 
-\textbf{Critical analysis:} Its strengths are the direct use of knowledge distillation for email phishing, a hybrid dataset covering AI-generated variants, and CPU-friendly deployment. Its weaknesses include the use of email text only, reliance on English and public sources, no temporal or source-disjoint evaluation, and no in-browser deployment study \cite{distilbilstm2026}.
+\subsubsection{Real-Time Email Phishing Detection Using a Custom DistilBERT Model (IEEE 2024)}
+This DistilBERT variant uses a learnable, dynamic threshold, a two-layer feedforward head, and an FPR penalty in its loss. It runs through the Gmail API and retrains daily. The paper reports 99.29\% accuracy, 0.69\% FPR, and a mean response time of 1.88~s. Its live test covers just 22 emails \cite{distilbertemail2024}. The study accounts for false positives in the loss and tests a working Gmail deployment. Its small live test has a false-positive rate of 6.67\%. The system requires daily retraining and supports Gmail only, and the evaluation includes neither component ablations nor adversarial tests \cite{distilbertemail2024}. PhishHook adopts FPR-aware evaluation and a Gmail and Outlook web DOM deployment path, but adds ablation, adversarial evaluation, and student-only resource measurement. The gaps in this study are a reason to evaluate PhishHook's email module more closely. The small live sample makes this a useful example of why a deployed path and a representative evaluation are separate achievements. In PhishHook, the false-positive analysis accompanies resource measurements and testing across the supported webmail interfaces.
 
-\textbf{Relationship to proposed work:} PhishHook adopts the teacher-student pattern from this paper but adapts it to the constrained webmail-DOM setting, restricts inputs to what is actually visible in Gmail or Outlook web, and measures student-only resource use in an MV3 extension. This design directly motivates RQ3.
-
-\subsubsection{Real-Time Email Phishing Detection Using a Custom DistilBERT Model (IEEE 2024):}
-\textbf{Summary:} This DistilBERT variant uses a learnable, dynamic threshold, a two-layer feedforward head, and an FPR penalty in its loss. It runs through the Gmail API and retrains daily. The paper reports 99.29\% accuracy, 0.69\% FPR, and a mean response time of 1.88~s. Its live test covers just 22 emails \cite{distilbertemail2024}.
-
-\textbf{Critical analysis:} The study accounts for false positives in the loss and tests a working Gmail deployment. Its small live test has a false-positive rate of 6.67\%. The system requires daily retraining and supports Gmail only, and the evaluation includes neither component ablations nor adversarial tests \cite{distilbertemail2024}.
-
-\textbf{Relationship to proposed work:} PhishHook adopts FPR-aware evaluation and a Gmail and Outlook web DOM deployment path, but adds ablation, adversarial evaluation, and student-only resource measurement. The gaps in this study are a reason to evaluate PhishHook's email module more closely.
-
-\subsubsection{Lightweight Cloud-Based Phishing Email Detection Using BERT and Deep Learning (IEEE 2024):}
-\textbf{Summary:} This cloud-based detector uses BERT to extract contextual embeddings and a dense linear layer to classify emails as Safe or Phishing. The authors describe this split as a way to keep the classifier lightweight. They report 98\% accuracy and high precision and recall on the broad dataset they used for training and validation, backed by F1 scores and a confusion matrix. They also cite cloud deployment as a way to improve efficiency, scalability, and real-time use \cite{cloudbert2024}.
-
-\textbf{Critical analysis:} Pre-trained BERT extracts contextual features from complex emails without manual feature design, which helps the detector classify complex messages. The reported 98\% accuracy and high precision and recall are in line with similar BERT detectors. Sending each email to the cloud raises latency, network dependency, and privacy concerns. The study reports balanced accuracy and per-class metrics, but omits cloud inference latency and false-positive rates at realistic base rates. Without temporal or source-disjoint tests, performance on newer phishing emails remains unclear \cite{cloudbert2024}.
-
-\textbf{Relationship to proposed work:} This study shows what a BERT-based email detector can achieve with cloud resources. PhishHook addresses the same task with all email inference on the user's device. That constraint motivates its choice of a distilled BiLSTM student \cite{cloudbert2024}.
+\subsubsection{Lightweight Cloud-Based Phishing Email Detection Using BERT and Deep Learning (IEEE 2024)}
+This cloud-based detector uses BERT to extract contextual embeddings and a dense linear layer to classify emails as Safe or Phishing. The authors describe this split as a way to keep the classifier lightweight. They report 98\% accuracy and high precision and recall on the broad dataset they used for training and validation, backed by F1 scores and a confusion matrix. They also cite cloud deployment as a way to improve efficiency, scalability, and real-time use \cite{cloudbert2024}. Pre-trained BERT extracts contextual features from complex emails without manual feature design, which helps the detector classify complex messages. The reported 98\% accuracy and high precision and recall are in line with similar BERT detectors. Sending each email to the cloud raises latency, network dependency, and privacy concerns. The study reports balanced accuracy and per-class metrics, but omits cloud inference latency and false-positive rates at realistic base rates. Without temporal or source-disjoint tests, performance on newer phishing emails remains unclear \cite{cloudbert2024}. This study shows what a BERT-based email detector can achieve with cloud resources. PhishHook addresses the same task with all email inference on the user's device. That constraint motivates its choice of a distilled BiLSTM student \cite{cloudbert2024}.
 
 \subsection{Client-Side, Lightweight, and Privacy-Preserving Deployment}
+The final group examines what can run on a user's device and what still depends on network access. Model size, CPU cost, and the source of each input matter alongside the reported detection scores.
 
-\subsubsection{Client-Side Zero-Shot LLM Inference for Comprehensive In-Browser URL Analysis (2025):}
-\textbf{Summary:} The framework classifies URLs locally with 2B--8B parameter LLMs through WebLLM. It gathers evidence with Acorn for JavaScript AST analysis, a dynamic iframe sandbox with monkey-patched APIs, and a content scraper. The LLM uses that evidence to classify URLs and explain its verdicts \cite{zeroshotllm2025}.
+\subsubsection{Client-Side Zero-Shot LLM Inference for In-Browser URL Analysis (2025)}
+Cohen's preprint describes a framework that classifies URLs locally with 2B--8B parameter LLMs through WebLLM. It gathers evidence with Acorn for JavaScript AST analysis, a dynamic iframe sandbox with monkey-patched APIs, and a content scraper. The LLM uses that evidence to classify URLs and explain its verdicts \cite{zeroshotllm2025}. The framework runs inference locally and explains its verdicts. It still produces occasional false negatives and hallucinations. Timing checks or resource exhaustion can evade the sandbox, and the reported mobile runtime exceeds 100~s per page on high-end smartphones \cite{zeroshotllm2025}. This paper is the closest match to PhishHook's local deployment goal. PhishHook uses a different architecture and much smaller quantised models. It defines the DOM input format and requires numerical parity between Python and browser inference. The comparison illustrates that local inference is feasible across very different model designs. PhishHook therefore assesses the cost of its chosen models directly on the destination platform, alongside checks that model outputs are consistent across Python and the browser.
 
-\textbf{Critical analysis:} The framework runs inference locally and explains its verdicts. It still produces occasional false negatives and hallucinations. Timing checks or resource exhaustion can evade the sandbox, and the reported mobile runtime exceeds 100~s per page on high-end smartphones \cite{zeroshotllm2025}.
+\subsubsection{Lightweight Phishing URL Detection Using Hybrid Lexical--Metadata Features (2025)}
+The authors use class-weighted logistic regression to detect phishing URLs from lexical features and metadata such as SSL presence, IP use, and domain age. It reports 99.1\% accuracy, 0.966 ROC-AUC, 0.865 F1, and under 10~ms latency \cite{lexmeta2025}. The study reports very low latency and high accuracy. It relies on SSL and domain-age metadata that require network lookups and leaves content features out of the model \cite{lexmeta2025}. PhishHook explicitly excludes metadata-driven features because they require network access. This paper is a useful contrast case and justifies PhishHook's local-input design. A fast classifier score alone does not describe the end-to-end cost when some inputs require a network lookup. PhishHook instead evaluates information available in the URL and rendered DOM, including whether the two local sources complement each other. It also measures inference latency and examines how false alarms change under realistic phishing base rates. Those checks make the comparison relevant to a browser extension, where resource use and the effect of warnings on everyday browsing matter alongside benchmark accuracy.
 
-\textbf{Relationship to proposed work:} This paper is the closest match to PhishHook's local deployment goal. PhishHook uses a different architecture and much smaller quantised models. It defines the DOM input format and requires numerical parity between Python and browser inference.
-
-\subsubsection{Lightweight Phishing URL Detection Using Hybrid Lexical--Metadata Features (2025):}
-\textbf{Summary:} The authors use class-weighted logistic regression to detect phishing URLs from lexical features and metadata such as SSL presence, IP use, and domain age. It reports 99.1\% accuracy, 0.966 ROC-AUC, 0.865 F1, and under 10~ms latency \cite{lexmeta2025}.
-
-\textbf{Critical analysis:} The study reports very low latency and high accuracy. It relies on SSL and domain-age metadata that require network lookups and leaves content features out of the model \cite{lexmeta2025}.
-
-\textbf{Relationship to proposed work:} PhishHook explicitly excludes metadata-driven features because they require network access. This paper is a useful contrast case and justifies PhishHook's local-input design.
+\subsubsection{Machine Learning-Based Malicious URL Detection Using Feature Selection and WHOIS Features (2026)}
+Khedekar and Pawar examine whether domain registration information improves malicious URL detection. Their balanced collection of 5,000 URLs includes 1,500 phishing URLs and 1,000 malware-distribution URLs. The authors compare five feature-selection methods with five supervised classifiers, then assess the best model with and without WHOIS attributes such as domain age. Recursive feature elimination paired with k-nearest neighbours achieves 98.8\% accuracy, 98.81\% F1, and a ROC-AUC of about 0.9965. Without WHOIS, accuracy falls to 98.6\% \cite{khedekar2026whoisurls}. The ablation quantifies the contribution of registration data, but its result depends on the availability of WHOIS records and the composition of the offline benchmark. The evaluation also leaves browser latency and changes to rendered pages untested. For PhishHook, the reported difference provides a comparison point when weighing external lookups against a fully local design. Its figures describe a mixed malicious-URL task, so they should be interpreted alongside that class definition when comparing them with a phishing-specific detector. PhishHook uses the URL and rendered page content available to the browser.
 
 \section{Literature Review Summary Table}
 \label{sec:lr-summary}
-During the course of our research, we studied many existing papers published in the domain of phishing detection. We observed that a range of techniques and methodologies were employed in them. You will find the name of the author or work, the method used, the results yielded, and the limitations they faced in Table~\ref{tab:lr_summary}.
+Table~\ref{tab:lr_summary} brings the reviewed methods together by input, outcome, and evaluation limits. The reported figures describe each paper's own benchmark, so they should be read alongside its dataset and deployment conditions.
 
 {\small
+\setstretch{1.15}
 \setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.2}
-\begin{longtable}{|p{2.3cm}|p{3.5cm}|p{3.7cm}|p{3.7cm}|}
+\renewcommand{\arraystretch}{1.08}
+\setlength{\LTpre}{0.5\baselineskip}
+\setlength{\LTpost}{0.5\baselineskip}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.35cm}|>{\raggedright\arraybackslash}p{4.15cm}|>{\raggedright\arraybackslash}p{4.25cm}|>{\raggedright\arraybackslash}p{\dimexpr\textwidth-10.75cm-8\tabcolsep-5\arrayrulewidth\relax}|}
 \caption{Literature review summary (research project format).}
 \label{tab:lr_summary}\\
 \hline
@@ -543,13 +437,13 @@ Web Phishing Net \cite{wpn2025} & LSH clustering plus Levenshtein and Dice dista
 \hline
 PhishCluster \cite{phishcluster2026} & Two-phase online and offline density clustering on URL embeddings; ANN plus HDBSCAN. & Approximately 8,570 URLs/s; ARI 0.92; precision 0.94; recall 0.95 on synthetic 1B data. & Fixed hyperparameters; URL only; single-server; synthetic-only; static embeddings. \\
 \hline
-Enhanced K-Means \cite{kmeans2024} & K-Means plus CfsSubsetEval (87 to 19 features) plus polynomial kernel; WEKA. & 86.25--89.2\% accuracy vs 51.5--56.98\% kernel K-Means. & Small datasets; one baseline; offline; unclear scalability. \\
+Enhanced K-Means \cite{kmeans2024} & CfsSubsetEval (87 to 19 features), polynomial kernel, and K-Means in WEKA. & 86.25--89.2\% accuracy vs 51.5--56.98\% kernel K-Means. & Small datasets; one baseline; offline; unclear scalability. \\
 \hline
 Clustering plus ML \cite{clustml2024} & Feature selection (RS, ScC, PCA) plus K-Means plus DT or DL (H2O). & Up to 100\% accuracy on a tabular benchmark. & Static tabular data; no HTML or DOM; no latency or memory; ceiling-effect risk. \\
 \hline
 PhishLang \cite{phishlang2026} & Client-side MobileBERT over parsed HTML tags; PhishPedia dataset \cite{phishpedia2021}; multi-modal ensemble of URL and source models. & Accuracy = 96\%, Precision = 95\%, Recall = 96\%, F1 = 96\% on balanced data; 91.4\% zero-day detection rate in live deployment; identified 25,796 phishing URLs in 3.5 months; 74\% of reported threats were taken down. & JS evasion; DOM manipulation; false positives from malformed sites; non-English phishing missed; no temporal or source-disjoint evaluation reported. \\
 \hline
-SpecularNet \cite{specularnet2026} & Hierarchical graph autoencoder on DOM tree; text and attribute values discarded. & Test 1: ACC 93.92, F1 93.92; Test 2: ACC 86.06; CPU about 20~ms/page. & Weak vs spear-phishing; assumes HTML modification; no network features; no adaptation under drift. \\
+SpecularNet \cite{specularnet2026} & Hierarchical graph autoencoder on DOM tree; text and attribute values discarded. & F1 93.9\%; CPU about 20~ms per page. & Uses domain and HTML structure only; adversarial tests cover HTML-level changes. \\
 \hline
 Phish Fighter \cite{phishfighter2025} & Repeated-template HTML structure; feature extractor; clustering plus Random Forest. & Detects zero-day kits and clones without brand knowledge. & False-positive risk on real sites; no URL post-check; no real-world integration. \\
 \hline
@@ -559,6 +453,8 @@ Deep Learning SLR \cite{dlsurvey2026} & 448 records screened to 101 studies (202
 \hline
 Lightweight Malicious URL using LLMs \cite{llmurl2025} & LLM encoders as feature extractors; Conv-1D plus LSTM plus GRU head; LIME. & 97.5\% peak accuracy; 0.11~ms latency; 0.5M params. & URL only; needs GPU for embeddings; fails on homoglyphs and subdomain chaining. \\
 \hline
+Feature Selection and Deep Learning \cite{nayak2025featurephishing} & Permutation importance and grid search; compares feedforward, DNN, Wide and Deep, and TabNet models. & 94.46\% accuracy with 14 features; about 80\% on the second dataset. & Second dataset informed model selection; extension uses Flask server inference. \\
+\hline
 PhishSSL \cite{phishssl2025} & Self-supervised contrastive learning; 87-dim URL plus HTML plus external features; attention; triplet loss. & ROC-AUC 0.960 (benchmark), 0.935 and 0.922 on two further datasets. & Depends on external services; no realistic base rates; unsupervised. \\
 \hline
 UDA for URL detection \cite{uda2024} & Feature-level UDA on URLNet, URLTran, CatchPhish, PhishRF across three datasets. & 19 of 24 scenarios improved; average F1 +0.06 (up to +0.2). & Ignores feature correlations; matches overall distributions, not class-specific. \\
@@ -567,15 +463,17 @@ Semantic Web MobileBERT plus CMA-ES \cite{semanticweb2024} & MobileBERT embeddin
 \hline
 HTTP Header Phishing \cite{httpheader2024} & 16 security headers as binary features; six classifiers; Random Forest selected. & 97.8\% / 95.1\% / 99.2\% on three datasets; 1.57~s response. & Header-dependent; self-built datasets; untested vs adaptive attackers. \\
 \hline
-Distilled Attention-Augmented BiLSTM \cite{distilbilstm2026} & MobileBERT teacher distilled to BiLSTM with multi-head attention; hybrid real plus LLM email dataset. & Student about 4.5M params vs teacher 25.3M; F1 96.67 on mixture; 6.06~s CPU. & Email text only; English; no temporal or source splits; no browser deployment. \\
+Distilled Attention-Augmented BiLSTM \cite{distilbilstm2026} & MobileBERT teacher distilled to BiLSTM with multi-head attention; hybrid real plus LLM email dataset. & Student about 4.5M parameters; faster inference with a small weighted-F1 difference on mixed traffic. & Email-text evaluation; browser resource use remains to be measured. \\
 \hline
 Custom DistilBERT Email \cite{distilbertemail2024} & DistilBERT with learnable threshold and FPR-penalised loss; Gmail API with daily retraining. & 99.29\% accuracy, 0.69\% FPR, 1.88~s response; live test 22 emails. & Tiny live set; 6.67\% real FPR; no ablation; no adversarial; Gmail-only. \\
 \hline
 Lightweight Cloud-Based Phishing Email \cite{cloudbert2024} & BERT for feature extraction plus a dense deep learning classifier, deployed on a cloud service. & Accuracy = 98\%, Safe: Precision = 97\%, Recall = 97\%, F1 = 97\%; Phishing: Precision = 98\%, Recall = 98\%, F1 = 98\%. & Requires cloud inference for every email; user content leaves the device; no on-device deployment; no temporal or source-disjoint evaluation; latency and false-positive rate at realistic base rates not reported. \\
 \hline
-Client-Side Zero-Shot LLM \cite{zeroshotllm2025} & WebLLM 2B--8B LLMs in browser; Acorn AST plus sandboxed iframe plus scraper. & Local classification with explanations; compared to RF and cloud GPT. & False negatives and hallucinations; sandbox evasion; mobile above 100~s/page. \\
+Client-Side Zero-Shot LLM (preprint) \cite{zeroshotllm2025} & WebLLM 2B--8B LLMs in browser; Acorn AST plus sandboxed iframe plus scraper. & Local classification with explanations; compared to RF and cloud GPT. & False negatives and hallucinations; sandbox evasion; mobile above 100~s/page. \\
 \hline
 Hybrid Lexical--Metadata \cite{lexmeta2025} & Lexical plus metadata features; class-weighted logistic regression. & 99.1\% accuracy; 0.966 AUC; F1 0.865; under 10~ms. & Needs SSL or domain-age metadata (network); no content features. \\
+\hline
+WHOIS-Based Malicious URL Detection \cite{khedekar2026whoisurls} & Five feature selectors and five classifiers across 5,000 URLs; compares models with and without WHOIS. & RFE with k-nearest neighbours: 98.8\% accuracy, 98.81\% F1, ROC-AUC 0.9965; 98.6\% accuracy without WHOIS. & Offline benchmark includes both malware and phishing URLs; depends on registration data availability. \\
 \hline
 
 \end{longtable}
@@ -586,34 +484,30 @@ Hybrid Lexical--Metadata \cite{lexmeta2025} & Lexical plus metadata features; cl
 
 \section{Conclusion}
 \label{sec:litreview-conclusion}
-The literature demonstrates significant progress in phishing detection, from blocklists and supervised learning to client-side transformers, unsupervised anomaly detection, and knowledge distillation. However, several gaps remain that PhishHook aims to address. First, existing approaches provide limited integration of unsupervised URL anomaly detection with supervised web-content analysis; PhishHook will experimentally evaluate models such as Isolation Forest and K-Means on benign URLs and compare supervised models for detecting phishing through rendered DOM features. Second, the limitations identified in FishTank and PhishLang [1] motivate PhishHook's planned study of continuous DOM monitoring and how to detect JavaScript-driven page changes that may hide phishing content. Third, PhishHook aims to bundle the models inside a Chromium Manifest V3 extension and will investigate quantisation and WebAssembly-based optimisation to lower deployment overhead without a separate model installation. Fourth, it combines URL and DOM predictions through a logistic-regression fusion model and extends detection across email and webpage interactions using a distilled BiLSTM email detector, with MobileBERT serving as its training teacher [17]. Finally, PhishHook will investigate event-level phishing decisions that combine email and webpage evidence, while evaluating generalisation, realistic phishing base rates, detection performance, and client-side resource consumption. Together, these contributions aim to deliver a privacy-preserving, lightweight, and experimentally validated phishing detection system.
-
-
-
-
+The literature demonstrates significant progress in phishing detection, from blocklists and supervised learning to client-side transformers, unsupervised anomaly detection, and knowledge distillation. However, several gaps remain that PhishHook aims to address. First, existing approaches provide limited integration of unsupervised URL anomaly detection with supervised web-content analysis; PhishHook will experimentally evaluate models such as Isolation Forest and K-Means on benign URLs and compare supervised models for detecting phishing through rendered DOM features. Second, the limitations identified in FishTank and PhishLang \cite{phishlang2026} motivate PhishHook's planned study of continuous DOM monitoring and how to detect JavaScript-driven page changes that may hide phishing content. Third, PhishHook aims to bundle the models inside a Chromium Manifest V3 extension and will investigate quantisation and WebAssembly-based optimisation to lower deployment overhead without a separate model installation. Fourth, it combines URL and DOM predictions through a logistic-regression fusion model and extends detection across email and webpage interactions using a distilled BiLSTM email detector, with MobileBERT serving as its training teacher \cite{distilbilstm2026}. Finally, PhishHook will investigate event-level phishing decisions that combine email and webpage evidence, while evaluating generalisation, realistic phishing base rates, detection performance, and client-side resource consumption. Together, these contributions aim to deliver a privacy-preserving, lightweight, and experimentally validated phishing detection system.
 
 \chapter{Software Requirement Specifications}
 \label{ch:srs}
-This chapter documents the functional and non-functional requirements of PhishHook. The system's requirements and use cases will also be covered.
+This chapter specifies what PhishHook must do and the conditions it must satisfy as a browser extension. The functional requirements follow the detection process from input collection to model inference and the warning shown to the user. The non-functional requirements cover how the same process protects user data, stays responsive, and continues to operate when a page or model cannot be analysed. The use cases connect those requirements to actions such as opening a web page, navigating within a single-page application, submitting a form, and opening a webmail message. They also describe what happens when the rendered document is unavailable. The hardware and software requirements distinguish model development from browser deployment, where the extension uses packaged models and runs on the user's device. The interface section explains where each verdict appears, and the risk analysis identifies the conditions under which detection, privacy, or normal browsing may be affected. Together, these sections provide a basis for checking the implementation against its stated behaviour.
 
 \section{List of Features}
-The major features of the PhishHook system are listed in this section. They are listed below:
+PhishHook analyses web pages and supported webmail messages inside the browser. Its main features cover input extraction, local model execution, and warnings that users can dismiss while continuing to browse.
 \begin{itemize}
-    \item Local URL extraction
-    \item Local DOM extraction
-    \item Unsupervised URL scoring
-    \item Supervised DOM classification
-    \item Fusion of URL and DOM scores
-    \item Continuous DOM monitoring
-    \item Warning user pop-up
-    \item Local-only operation
-    \item Email to web Correlation
-    \item Email classification using MobilbERT distilled BiLSTM
-    \item Self contained browser Base model Excecution
+    \item The extension extracts the current URL locally.
+    \item It extracts relevant text and structural indicators from the rendered DOM.
+    \item An unsupervised model scores URL anomalies.
+    \item A supervised model scores DOM-derived text for phishing.
+    \item A fusion model combines the URL and DOM scores.
+    \item The extension monitors significant DOM changes after the page loads.
+    \item It displays a dismissible warning when the verdict warrants one.
+    \item Detection runs locally on the user's device.
+    \item The extension correlates a webmail verdict with the tab opened from that message.
+    \item A MobileBERT-distilled BiLSTM classifies email content.
+    \item The browser runs models packaged with the extension.
 \end{itemize}
 
 \section{Functional Requirements}
-The functional requirements of our system are listed in this section.
+The functional requirements follow the path from a browser event to the verdict presented to the user. For a web page, the extension reads the URL and extracts a separate representation of the rendered DOM. Each input is scored independently before the fusion model applies the deployed decision thresholds. Keeping the inputs separate makes the expected behaviour clear when the DOM cannot be read: the URL module can still provide a provisional result while full analysis is pending. The requirements distinguish the initial analysis from later rescans triggered by significant page changes. For webmail, the extension scores the fields visible in the open message and can associate an email verdict with the tab created by a link in that message. The following subsections define which inputs and browser events each feature uses, how a verdict is formed, and when the user sees a warning. The extension runs these operations with the models packaged for local use.
 
 \subsection{Local URL Extraction}
 The system shall read the URL of the top-level frame of the active tab using the browser navigation API. The URL shall be normalised (fragment removed, scheme and host lower-cased) using the same routine that prepared the training data.
@@ -642,39 +536,45 @@ The system shall run without network requests, telemetry, or off-device data tra
 \subsection{Email-to-Web Correlation}
 When a user follows a link from an open webmail message, the system shall associate the email verdict with the new tab through its opener relationship, without matching URLs. If the email and web verdicts are both available within the time window, the system shall apply the defined rule to produce an overall event verdict.
 
-\subsection{Email Classification using MobileBERT-Distilled BiLSTM}
+\subsection{Email Classification Using MobileBERT-Distilled BiLSTM}
 When a user opens a message in Gmail or Outlook web, the system shall extract its subject, visible sender name and address, visible body text, links, and visible attachment names. The distilled BiLSTM student shall output a phishing probability for these fields. The system shall compare it with the deployed email threshold.
 
 \subsection{Self-Contained Browser-Based Model Execution}
 The system shall load all models from the extension package and run WebAssembly inference in the browser through an offscreen document. It shall keep the page verdict pending at cold start or when a model fails to load.
 
 \section{Quality Attributes}
-PhishHook has the following quality attributes:
+The quality attributes describe how PhishHook should behave during ordinary browsing. They connect the local deployment design to the experience of reading a warning, operating the extension on a supported browser, and reproducing the evaluation.
 \begin{itemize}
-    \item Privacy
-    \item Security
-    \item Portability
-    \item Reproducibility
-    \item Usability
-    \item Efficiency
+    \item The extension processes user data locally and keeps page and email content in memory only.
+    \item Browser permissions are limited to the access needed for detection.
+    \item The packaged extension runs on supported browser versions without a separate model installation.
+    \item The evaluation records the browser and device conditions used for measurement.
+    \item Warnings communicate the severity of the verdict and allow ordinary browsing to continue.
+    \item Model size, latency, memory, and CPU use are measured on the target hardware.
 \end{itemize}
 
 \section{Non-Functional Requirements}
-This section describes PhishHook's non-functional requirements.
+The non-functional requirements describe the conditions under which the extension must provide its detection features. They cover handling of user data, access to browser resources, behaviour when an input or model is unavailable, and the effect of detection on everyday browsing.
 
 \subsection{Privacy}
+The detector handles potentially sensitive information from ordinary browsing and webmail. Its privacy requirements limit where those inputs are processed and whether they remain on the device after analysis.
+
 \begin{itemize}
     \item The system shall process URLs, webpage content, and email content in the browser without sending them to external servers.
     \item The system shall keep webpage content, email content, URLs, and input field values out of device storage.
 \end{itemize}
 
 \subsection{Security}
+Detection requires access to some browser data. These requirements govern the permissions requested by the extension and the policies that restrict where its code can run from.
+
 \begin{itemize}
     \item The system shall request the minimum browser permissions needed for phishing detection and avoid broader host access.
     \item The system shall use a Content Security Policy to block remote scripts and prevent remote code execution.
 \end{itemize}
 
 \subsection{Reliability}
+Local inference can fail when a model does not load or the content script cannot obtain a usable DOM. These requirements define the expected fallback and the circumstances in which the interface can show a definitive verdict.
+
 \begin{itemize}
     \item The system shall handle errors during model loading or inference while keeping the browser and extension running.
     \item The system shall use fallback detection when it cannot access the page DOM or when the DOM provides too little content.
@@ -682,6 +582,8 @@ This section describes PhishHook's non-functional requirements.
 \end{itemize}
 
 \subsection{Efficiency}
+The extension shares CPU and memory with the browser and has to remain responsive during long sessions. Benchmarks on both device classes are used to assess those resource costs.
+
 \begin{itemize}
     \item The system shall complete phishing detection within the latency limits determined by benchmarks on both high-end and low-end hardware.
     \item The system shall stay within the specified limits for memory use and extension package size.
@@ -689,6 +591,8 @@ This section describes PhishHook's non-functional requirements.
 \end{itemize}
 
 \subsection{Portability}
+The extension is packaged for supported Chrome versions and runs through the Manifest V3 APIs. Portability is assessed against that browser environment and the resources bundled with the extension.
+
 \begin{itemize}
     \item The system shall run as a Manifest V3 extension on supported versions of Google Chrome.
     \item The system shall detect phishing without a separate model installation or an external inference service.
@@ -696,15 +600,16 @@ This section describes PhishHook's non-functional requirements.
 \end{itemize}
 
 \subsection{Usability}
+A warning should communicate the verdict quickly at the point where it matters to the user. The interface requirements below describe how users recognise the severity and continue browsing.
+
 \begin{itemize}
     \item The system shall show an easy-to-understand warning when it detects phishing activity.
     \item The system shall show warnings that users can dismiss and that do not interrupt normal browser interaction.
     \item The system shall give suspicious and phishing warnings distinct appearances so users can recognise the level of severity.
 \end{itemize}
 
-
 \section{Assumptions}
-The system design makes the following assumptions:
+The requirements assume a supported Chromium browser, the necessary permissions, and webmail interfaces whose visible fields can be extracted consistently. The evaluation also depends on the availability of the stated datasets and on keeping the test environment consistent between runs.
 \begin{itemize}
     \item Standard Manifest V3 APIs give the extension access to the current URL, the rendered DOM, and navigation events.
     \item The user has installed the extension and allowed it to access webmail through the required host permissions.
@@ -716,16 +621,25 @@ The system design makes the following assumptions:
 \end{itemize}
 
 \section{Use Cases}
-Each major use case starts with an introduction, followed by a table and a short account of how the deployed extension handles it.
+The use cases describe what the user does, what the extension can observe, and how it responds. Opening a web page exercises the ordinary URL and DOM analysis flow. A form submission can trigger a fresh check or reuse a verdict when the page has not changed. Navigation inside a single-page application is handled separately because the visible page may change without a full reload. Opening a webmail message exercises the email detector and the warning inside the webmail interface. A separate fallback case covers situations in which page content is missing or delayed and a provisional URL-based result is the only verdict the extension can produce at first. Each table records the relevant preconditions, the result available to the user, and how the flow changes when the expected input or event differs. Read together, they show which behaviour can be tested by following user actions in a browser and which conditions may need to be simulated, such as an unavailable DOM.
 
 \subsection{Visit a Web Page}
 Opening an \texttt{http} or \texttt{https} page in Chromium with the extension enabled starts analysis. The extension ignores other schemes. The content script extracts the URL and DOM text, and the offscreen document runs the URL, DOM, and fusion models. If the DOM is unavailable, the extension issues a provisional URL-only verdict and replaces it once the DOM is ready.
 
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{|l|X|}
+{\small
+\setstretch{1.15}
+\setlength{\LTpre}{0.35\baselineskip}
+\setlength{\LTpost}{0.35\baselineskip}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}|>{\raggedright\arraybackslash}p{\dimexpr0.69\textwidth-4\tabcolsep-3\arrayrulewidth\relax}|}
 \hline
 \textbf{Name} & Visit a Web Page \\ \hline
+\endfirsthead
+\hline
+\textbf{Name} & Visit a Web Page \\ \hline
+\textbf{Actor Action} & \textbf{System Response} \\ \hline
+\endhead
 \textbf{Actors} & User \\ \hline
 \textbf{Summary} & The user opens a web page, and the extension analyses the page and warns the user if it is phishing. \\ \hline
 \textbf{Pre-Conditions} & The extension is installed and enabled. The user has navigated to an \texttt{http} or \texttt{https} page. \\ \hline
@@ -738,17 +652,26 @@ Opening an \texttt{http} or \texttt{https} page in Chromium with the extension e
  & 4. The system produces a verdict and shows the warning if phishing. \\ \hline
 \multicolumn{2}{|c|}{\textbf{Alternative Flow}} \\ \hline
 1. The user opens a page whose DOM is not yet available. & 2-A. The system falls back to the URL-only score and produces a provisional verdict. \\ \hline
-\end{tabularx}
-\end{table}
+\end{longtable}
+}
 
 \subsection{Form Submission}
 Some phishing pages reveal their intent only when a user is about to enter credentials. The extension listens for form submissions and clicks on submit controls, then reruns inference on the current URL and DOM. It reuses the cached verdict if the page is unchanged. Any warning appears before submission and lets the user decide whether to continue.
 
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{|l|X|}
+{\small
+\setstretch{1.15}
+\setlength{\LTpre}{0.35\baselineskip}
+\setlength{\LTpost}{0.35\baselineskip}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}|>{\raggedright\arraybackslash}p{\dimexpr0.69\textwidth-4\tabcolsep-3\arrayrulewidth\relax}|}
 \hline
 \textbf{Name} & Form Submission \\ \hline
+\endfirsthead
+\hline
+\textbf{Name} & Form Submission \\ \hline
+\textbf{Actor Action} & \textbf{System Response} \\ \hline
+\endhead
 \textbf{Actors} & User \\ \hline
 \textbf{Summary} & The user submits a form, and the extension re-evaluates the page and warns the user if the form is suspicious. \\ \hline
 \textbf{Pre-Conditions} & The extension is enabled and the page contains a form. \\ \hline
@@ -761,17 +684,26 @@ Some phishing pages reveal their intent only when a user is about to enter crede
  & 4. If the verdict is phishing, the warning is shown before the form is submitted. \\ \hline
 \multicolumn{2}{|c|}{\textbf{Alternative Flow}} \\ \hline
 1. The user submits a form on a page whose DOM has not changed. & 2-A. The system uses the last cached verdict and shows the warning accordingly. \\ \hline
-\end{tabularx}
-\end{table}
+\end{longtable}
+}
 
 \subsection{Single-Page Application Navigation}
 Single-page applications switch views without a full page reload. The extension watches for significant changes such as a new form, a different visible title, or a route change in the address bar. Debouncing lets a burst of changes trigger one inference after it ends, limiting the cost of continuous monitoring and avoiding duplicate runs.
 
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{|l|X|}
+{\small
+\setstretch{1.15}
+\setlength{\LTpre}{0.35\baselineskip}
+\setlength{\LTpost}{0.35\baselineskip}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}|>{\raggedright\arraybackslash}p{\dimexpr0.69\textwidth-4\tabcolsep-3\arrayrulewidth\relax}|}
 \hline
 \textbf{Name} & Single-Page Application Navigation \\ \hline
+\endfirsthead
+\hline
+\textbf{Name} & Single-Page Application Navigation \\ \hline
+\textbf{Actor Action} & \textbf{System Response} \\ \hline
+\endhead
 \textbf{Actors} & User \\ \hline
 \textbf{Summary} & The user navigates within a single-page application, and the extension re-evaluates the page after each significant DOM mutation. \\ \hline
 \textbf{Pre-Conditions} & The extension is enabled and the page is a single-page application. \\ \hline
@@ -784,17 +716,26 @@ Single-page applications switch views without a full page reload. The extension 
  & 4. The system produces a new verdict within the debounce window. \\ \hline
 \multicolumn{2}{|c|}{\textbf{Alternative Flow}} \\ \hline
 1. The user triggers rapid route changes. & 2-A. The extension debounces the triggers and runs inference once after the last change. \\ \hline
-\end{tabularx}
-\end{table}
+\end{longtable}
+}
 
 \subsection{Open a Webmail Message}
 This is the only use case that needs site-specific host permissions, which let the extension read Gmail or Outlook web. It uses visible fields only: subject, sender, body text, links, and attachment names. It excludes raw headers such as SPF and DKIM. Links stay unopened and their destinations are never fetched. Each link verdict uses only its URL and surrounding text.
 
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{|l|X|}
+{\small
+\setstretch{1.15}
+\setlength{\LTpre}{0.35\baselineskip}
+\setlength{\LTpost}{0.35\baselineskip}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}|>{\raggedright\arraybackslash}p{\dimexpr0.69\textwidth-4\tabcolsep-3\arrayrulewidth\relax}|}
 \hline
 \textbf{Name} & Open a Webmail Message \\ \hline
+\endfirsthead
+\hline
+\textbf{Name} & Open a Webmail Message \\ \hline
+\textbf{Actor Action} & \textbf{System Response} \\ \hline
+\endhead
 \textbf{Actors} & User \\ \hline
 \textbf{Summary} & The user opens an email in webmail, and the extension classifies the email and warns the user if it is phishing. \\ \hline
 \textbf{Pre-Conditions} & The extension is enabled, the user has granted webmail host permissions, and Gmail or Outlook web is open. \\ \hline
@@ -807,17 +748,26 @@ This is the only use case that needs site-specific host permissions, which let t
  & 4. If the verdict is phishing, the warning interface is shown. \\ \hline
 \multicolumn{2}{|c|}{\textbf{Alternative Flow}} \\ \hline
 1. The webmail DOM changes before extraction completes. & 2-A. The extension re-extracts from the current DOM and runs inference again. \\ \hline
-\end{tabularx}
-\end{table}
+\end{longtable}
+}
 
 \subsection{DOM Unavailable}
 If the DOM is unavailable, the extension issues a provisional URL-only verdict and warns the user if the URL is suspicious. A fused verdict replaces it once the DOM is available. Otherwise, the URL-only verdict lasts for the page load and the extension never marks the page safe.
 
-\begin{table}[H]
-\centering
-\begin{tabularx}{\textwidth}{|l|X|}
+{\small
+\setstretch{1.15}
+\setlength{\LTpre}{0.35\baselineskip}
+\setlength{\LTpost}{0.35\baselineskip}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.08}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}|>{\raggedright\arraybackslash}p{\dimexpr0.69\textwidth-4\tabcolsep-3\arrayrulewidth\relax}|}
 \hline
 \textbf{Name} & DOM Unavailable \\ \hline
+\endfirsthead
+\hline
+\textbf{Name} & DOM Unavailable \\ \hline
+\textbf{Actor Action} & \textbf{System Response} \\ \hline
+\endhead
 \textbf{Actors} & User \\ \hline
 \textbf{Summary} & The extension attempts to analyse a page but the DOM is not available, so it falls back to the URL-only score. \\ \hline
 \textbf{Pre-Conditions} & The extension is enabled and the page has loaded but the DOM is blocked, empty, or insufficient. \\ \hline
@@ -830,15 +780,14 @@ If the DOM is unavailable, the extension issues a provisional URL-only verdict a
  & 4. The extension falls back to the URL-only score and produces a provisional verdict. \\ \hline
 \multicolumn{2}{|c|}{\textbf{Alternative Flow}} \\ \hline
 1. The DOM becomes available after a delay. & 2-A. The extension replaces the provisional verdict with a fused verdict once the DOM is available. \\ \hline
-\end{tabularx}
-\end{table}
-
+\end{longtable}
+}
 
 \section{Hardware and Software Requirements}
 This section lists the hardware and software needed to develop and deploy PhishHook.
 
 \subsection{Hardware Requirements}
-The following are the hardware requirements required for the operation of the system:
+Model training, testing, and deployment place different demands on hardware. GPU access is useful when fine-tuning the teacher model, while the extension itself is evaluated with CPU-only inference on both high-end and low-end hardware.
 \begin{itemize}
    \item A computer system capable of running Python for model training and ONNX export.
     \item A GPU-enabled machine is recommended for fine-tuning the MobileBERT teacher model, though a CPU-only machine is sufficient for the unsupervised URL model and the distilled BiLSTM student.
@@ -849,70 +798,74 @@ The following are the hardware requirements required for the operation of the sy
 \end{itemize}
 
 \subsection{Software Requirements}
-The following are the software requirements required for the operation of the system:
+The development toolchain covers model training, export, browser inference, and extension packaging. The tools below are grouped by their role in that workflow.
 \begin{itemize}
-    \item \textbf{Python:} Programming language for model training and preprocessing.
-    \item \textbf{Colab:} Environment for GPU-accelerated model training.
-    \item \textbf{PyTorch:} Deep learning framework for MobileBERT and the BiLSTM student.
-    \item \textbf{Scikit-learn:} Library for Isolation Forest, logistic regression, and baseline models.
-    \item \textbf{ONNX:} Format for exporting trained models from Python.
-    \item \textbf{ONNX Runtime Web:} Runtime for in-browser inference through WebAssembly.
-    \item \textbf{WebAssembly:} Browser execution format used to run the models locally.
-    \item \textbf{Transformers:} Used to load and fine-tune the MobileBERT model.
-    \item \textbf{Node.js:} Provides the runtime used to build and package the Chrome extension.
-    \item \textbf{npm:} Package manager for installing extension build dependencies.
-    \item \textbf{esbuild:} Build tool for bundling the extension code.
-    \item \textbf{Acorn:} JavaScript parser for analysing page scripts.
-    \item \textbf{VS Code:} Used to write and edit the project code.
-    \item \textbf{Chrome:} Used to test the extension in the browser.
-    \item \textbf{GitHub:} Used to track project changes and collaborate as a team.
+    \item Python is used to preprocess data and train models.
+    \item Google Colab provides a GPU environment for model training.
+    \item PyTorch supports training MobileBERT and the BiLSTM student.
+    \item Scikit-learn provides Isolation Forest, logistic regression, and baseline models.
+    \item ONNX is the export format for models trained in Python.
+    \item ONNX Runtime Web runs model inference in the browser through WebAssembly.
+    \item WebAssembly provides the execution environment for local inference.
+    \item The Transformers library loads and fine-tunes MobileBERT.
+    \item Node.js provides the runtime used to build and package the Chrome extension.
+    \item npm installs the extension's build dependencies.
+    \item esbuild bundles the extension code.
+    \item Acorn parses JavaScript when page scripts are analysed.
+    \item VS Code is used to write and edit the project code.
+    \item Chrome is used to test the extension.
+    \item GitHub tracks changes and supports collaboration.
 \end{itemize}
 
 \section{Graphical User Interface}
-The extension displays warnings on suspicious web pages and, where applicable, on suspicious webmail messages. For each interface, this section shows what users see and explains what it is for.
+PhishHook presents a verdict in two ways. The toolbar popup gives the user a way to check the extension's status and the verdict for the current page. The warning interfaces bring the verdict to the user's attention during the activity that triggered it. A web warning appears on a suspicious page, a form warning appears at the point of submission, and a webmail warning appears where the user is reading a flagged message. These are different points in the browsing workflow: one provides information on request, while the others provide a warning when a specific verdict or action warrants it. The screenshots below illustrate what each message looks like and where it appears. The descriptions identify the condition that triggers each surface so that the screenshots can be read alongside the functional requirements. They also provide examples for interface testing, including checking the displayed verdict and confirming that dismissible warnings leave the user in control of browsing.
 
 \subsection{Extension Popup}
 Clicking the PhishHook icon in the Chromium toolbar opens a popup with the extension status and the current page verdict.
 
-\begin{figure}[H]
+\noindent\begin{minipage}{\linewidth}
     \centering
-    \includegraphics[width=0.9\textwidth]{Figures/gui_popup.png}
-    \caption{Extension popup showing status and current verdict.}
+    \includegraphics[width=0.9\linewidth,height=0.23\textheight,keepaspectratio]{Figures/gui_popup.png}
+    \captionsetup{hypcap=false}
+    \captionof{figure}{Extension popup showing status and current verdict.}
     \label{fig:gui-popup}
-\end{figure}
+\end{minipage}\par
 
 \subsection{Web Phishing Warning Banner}
 The banner appears at the top of a web page when the fused risk score exceeds the deployed threshold. It states that the page is suspected of phishing and is dismissible.
 
-\begin{figure}[H]
+\noindent\begin{minipage}{\linewidth}
     \centering
-    \includegraphics[width=0.9\textwidth]{Figures/gui_banner_web.png}
-    \caption{Phishing warning banner on a web page.}
+    \includegraphics[width=0.9\linewidth,height=0.145\textheight,keepaspectratio]{Figures/gui_banner_web.png}
+    \captionsetup{hypcap=false}
+    \captionof{figure}{Phishing warning banner on a web page.}
     \label{fig:gui-banner-web}
-\end{figure}
+\end{minipage}\par
 
 \subsection{Form Submission Warning}
 The form submission warning appears when a user attempts to submit a form on a page flagged as suspicious. It is worded more strongly than the passive banner.
 
-\begin{figure}[H]
+\noindent\begin{minipage}{\linewidth}
     \centering
-    \includegraphics[width=0.9\textwidth]{Figures/gui_banner_form.png}
-    \caption{Form submission warning.}
+    \includegraphics[width=0.9\linewidth,height=0.175\textheight,keepaspectratio,trim=230bp 295bp 230bp 295bp,clip]{Figures/gui_banner_form.png}
+    \captionsetup{hypcap=false}
+    \captionof{figure}{Form submission warning.}
     \label{fig:gui-banner-form}
-\end{figure}
+\end{minipage}\par
 
 \subsection{Email Phishing Warning Banner}
 The email warning appears inside Gmail or Outlook web when the distilled BiLSTM student flags a message as phishing.
 
-\begin{figure}[H]
+\noindent\begin{minipage}{\linewidth}
     \centering
-    \includegraphics[width=0.9\textwidth]{Figures/gui_banner_email.png}
-    \caption{Email phishing warning banner in webmail.}
+    \includegraphics[width=0.9\linewidth,height=0.175\textheight,keepaspectratio]{Figures/gui_banner_email.png}
+    \captionsetup{hypcap=false}
+    \captionof{figure}{Email phishing warning banner in webmail.}
     \label{fig:gui-banner-email}
-\end{figure}
+\end{minipage}\par
 
 \section{Risk Analysis}
-As PhishHook uses machine learning to detect phishing websites and emails, it is important to identify potential technical, security, privacy, and operational risks, that are discuss below.
+The extension makes detection decisions from data available at the time of browsing. Its risk analysis therefore covers both model errors and failures in the surrounding browser workflow. A model can misclassify unfamiliar attacks, while changes to the browser or webmail interface can interrupt input collection even when the model itself works as intended. The analysis also considers what happens when the extension is given more access than it needs, when sensitive inputs are handled unsafely, and when local inference consumes resources needed for ordinary browsing. These risks relate directly to the requirements for limited permissions, provisional verdicts when inputs are incomplete, and resource measurement on the target hardware. The following subsections distinguish risks arising from development data, from operation in the browser, and from changes over time. That distinction helps connect each risk to an appropriate check, such as testing held-out data, exercising the fallback behaviour, or measuring the effect of repeated rescans.
 
 \subsection{Technical Risks}
 The effectiveness of PhishHook depends on the quality and diversity of the datasets used to train and evaluate its phishing detection models. Biased, outdated, or insufficient datasets may cause poor generalisation and increase false-positive or false-negative rates. The datasets come from public sources including PhishPedia, PhishTank, Tranco, and the merged MeAJOR email corpus, and email datasets in particular may contain personal information even after cleaning, which raises data-leakage concerns during training. 
@@ -936,9 +889,7 @@ PhishHook processes potentially sensitive webpage content, URLs, and emails. Sto
 Chrome, Manifest V3 APIs, webmail interfaces, and inference dependencies can change and disrupt the extension. Detection may also become less effective as phishing techniques evolve.
 
 \section{Conclusion}
-This chapter describes PhishHook's functional and non-functional requirements and the hardware and software needed to develop and deploy the extension. It provides a comprehensive road map by presenting the list of features, functional and non-functional requirements, quality attributes, assumptions, use cases, and the graphical user interface. The chapter emphasises the importance of privacy, security, reliability, efficiency, portability, and usability, which together ensure that the extension performs accurate ondevice phishing detection without transmitting any user data off the device. Additionally, user assumptions, and a comprehensive risk analysis covering technical, security, privacy, operational, and adversarial concerns are also explained. 
-
-
+The requirements in this chapter describe how PhishHook analyses webpages and webmail, runs its models locally, and communicates verdicts during ordinary browsing. The feature and use-case descriptions connect user actions to the functional requirements, while the hardware, software, and interface sections record the conditions under which the extension is expected to operate. Privacy, security, reliability, efficiency, portability, and usability apply alongside detection accuracy. For example, the extension needs to handle missing content without giving a false impression of safety, and its warnings need to inform users while allowing ordinary browsing to continue. The assumptions identify what the extension expects from the browser and the supported webmail interfaces. The risk analysis describes where dataset quality, browser changes, limited resources, or model errors could affect the intended behaviour. These requirements set out what the methodology and design must account for, from the inputs available to the detector to the evidence needed to assess its performance in a browser.
 
 \chapter{Proposed Approach and Methodology}
 \label{ch:methodology}
